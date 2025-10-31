@@ -22,6 +22,8 @@ import java.util.Objects;
 
 public class Flow {
 
+    private static final String ERROR_KEY = "errorKey";
+
     private final TenantConfiguration tenantConfiguration;
     private final CookieHandler cookieHandler;
 
@@ -83,6 +85,36 @@ public class Flow {
 
         sessionId = redirectUri.getQueryParameter("session_id");
         return null;
+    }
+
+    public void startWorkflowSession(String query) {
+        final HttpClient.HttpResponse response = follow(tenantConfiguration.getEntryEndpoint(query));
+        if (response.getResponseCode() == 400) {
+            String body = response.getBody();
+
+            try {
+                JSONObject root = new JSONObject(body);
+
+                if (!root.has(ERROR_KEY)) {
+                    throw new NativeSDKError.UnknownError(new RuntimeException("Workflow error: errorKey is null"));
+                }
+
+                throw new NativeSDKError.WorkflowError(root.getString(ERROR_KEY));
+            } catch (JSONException e) {
+                throw new NativeSDKError.UnknownError(new RuntimeException("Workflow error: " + response.getBody()));
+            }
+        }
+
+        if (!response.getHeaders().containsKey("location")) {
+            throw new NativeSDKError.UnknownError(new RuntimeException("Workflow error: " + response.getBody()));
+        }
+
+        final Uri redirectUri = Uri.parse(response.getHeader("location"));
+        if (!redirectUri.getQueryParameterNames().contains("session_id")) {
+            throw new NativeSDKError.UnknownError(new RuntimeException("Failed to start session: session_id missing"));
+        }
+
+        sessionId = redirectUri.getQueryParameter("session_id");
     }
 
     public HttpClient.HttpResponse initForm() {
