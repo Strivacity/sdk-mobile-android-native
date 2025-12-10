@@ -3,10 +3,10 @@ package com.strivacity.android.native_sdk.auth;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import lombok.Getter;
+
 import java.util.Arrays;
 import java.util.function.Predicate;
-
-import lombok.Getter;
 
 public class NativeSDKError {
 
@@ -54,7 +54,6 @@ public class NativeSDKError {
                 return workflowError -> workflowError.id.equals(idParam);
             }
         }
-
     }
 
     public static class HostedFlowCancelled extends RuntimeException {

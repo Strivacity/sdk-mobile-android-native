@@ -99,8 +99,10 @@ public class FirstFragment extends Fragment {
                 if (error instanceof NativeSDKError.WorkflowError) {
                     final String mnemonicValue = ((NativeSDKError.WorkflowError) error).getError();
                     final WorkflowErrorId mnemonic = WorkflowErrorId.valueOfId(mnemonicValue);
-                    final String toastText = WORKFLOW_ERROR_MNEMONIC_TO_MESSAGE
-                            .getOrDefault(mnemonic, "Something bad happened, please try again");
+                    final String toastText = WORKFLOW_ERROR_MNEMONIC_TO_MESSAGE.getOrDefault(
+                        mnemonic,
+                        "Something bad happened, please try again"
+                    );
                     Toast.makeText(getContext(), toastText, Toast.LENGTH_SHORT).show();
                 }
 
@@ -110,9 +112,12 @@ public class FirstFragment extends Fragment {
     }
 
     private static final Map<WorkflowErrorId, String> WORKFLOW_ERROR_MNEMONIC_TO_MESSAGE = Map.of(
-        WorkflowErrorId.MAGIC_LINK_EXPIRED, "Your link has expired",
-        WorkflowErrorId.CLIENT_MISMATCH, "An unexpected error occurred, please try again (001)",
-        WorkflowErrorId.INVALID_REDIRECT_URI, "An unexpected error occurred, please try again (002)"
+        WorkflowErrorId.MAGIC_LINK_EXPIRED,
+        "Your link has expired",
+        WorkflowErrorId.CLIENT_MISMATCH,
+        "An unexpected error occurred, please try again (001)",
+        WorkflowErrorId.INVALID_REDIRECT_URI,
+        "An unexpected error occurred, please try again (002)"
     );
 
     private void showLoginScreen() {
