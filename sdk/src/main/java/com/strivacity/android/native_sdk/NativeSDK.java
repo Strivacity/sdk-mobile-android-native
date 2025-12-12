@@ -48,10 +48,10 @@ public class NativeSDK {
     private Session session;
 
     public NativeSDK(
-            TenantConfiguration tenantConfiguration,
-            ViewFactory viewFactory,
-            CookieHandler cookieHandler,
-            SharedPreferences sharedPreferences
+        TenantConfiguration tenantConfiguration,
+        ViewFactory viewFactory,
+        CookieHandler cookieHandler,
+        SharedPreferences sharedPreferences
     ) {
         this.tenantConfiguration = tenantConfiguration;
         this.sharedPreferences = sharedPreferences;
@@ -92,7 +92,7 @@ public class NativeSDK {
             }
 
             boolean hasValidAccessToken =
-                    session.getAccessToken() != null && session.getExpiration().isAfter(Instant.now());
+                session.getAccessToken() != null && session.getExpiration().isAfter(Instant.now());
 
             if (!hasValidAccessToken && session.getRefreshToken() != null) {
                 try {
@@ -103,8 +103,7 @@ public class NativeSDK {
                         edit.apply();
                     }
                     hasValidAccessToken = true;
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
             }
 
             boolean authenticated = hasValidAccessToken;
@@ -118,10 +117,10 @@ public class NativeSDK {
 
     @MainThread
     public void login(
-            LoginParameters loginParameters,
-            ViewGroup parentLayout,
-            Consumer<IdTokenClaims> onSuccess,
-            Consumer<Throwable> onError
+        LoginParameters loginParameters,
+        ViewGroup parentLayout,
+        Consumer<IdTokenClaims> onSuccess,
+        Consumer<Throwable> onError
     ) {
         backgroundThread.execute(() -> {
             try {
@@ -129,15 +128,15 @@ public class NativeSDK {
                 this.onError = onError;
                 flow = new Flow(tenantConfiguration, cookieHandler);
                 screenRenderer =
-                        new ScreenRenderer(
-                                viewFactory,
-                                parentLayout,
-                                this::submitForm,
-                                finalizeUri -> {
-                                    HttpClient.HttpResponse finalizeResponse = flow.follow(finalizeUri);
-                                    continueFlow(Uri.parse(finalizeResponse.getHeader("Location")));
-                                }
-                        );
+                    new ScreenRenderer(
+                        viewFactory,
+                        parentLayout,
+                        this::submitForm,
+                        finalizeUri -> {
+                            HttpClient.HttpResponse finalizeResponse = flow.follow(finalizeUri);
+                            continueFlow(Uri.parse(finalizeResponse.getHeader("Location")));
+                        }
+                    );
                 Uri finalizeUri = flow.startSession(loginParameters);
                 if (finalizeUri != null) {
                     continueFlow(finalizeUri);
@@ -217,8 +216,7 @@ public class NativeSDK {
                     edit.remove(STORE_KEY);
                     edit.apply();
                 }
-            } catch (Throwable e) {
-            } finally {
+            } catch (Throwable e) {} finally {
                 session = null;
             }
         });

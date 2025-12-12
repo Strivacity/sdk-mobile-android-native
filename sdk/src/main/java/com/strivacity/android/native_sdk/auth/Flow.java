@@ -43,22 +43,22 @@ public class Flow {
 
     public Uri startSession(LoginParameters loginParameters) {
         HttpClient.HttpResponse response = HttpClient.followUntil(
-                tenantConfiguration.getAuthEndpoint(oidcParams, loginParameters),
-                cookieHandler,
-                httpResponse -> {
-                    if (!httpResponse.getHeaders().containsKey("location")) {
-                        return true;
-                    }
-
-                    Uri redirectUri = Uri.parse(httpResponse.getHeader("location"));
-                    return (
-                            tenantConfiguration.getRedirectURI().getHost().equals(redirectUri.getHost()) ||
-                                    (
-                                            tenantConfiguration.getIssuer().getHost().equals(redirectUri.getHost()) &&
-                                                    "oauth2/error".equals(redirectUri.getPath())
-                                    )
-                    );
+            tenantConfiguration.getAuthEndpoint(oidcParams, loginParameters),
+            cookieHandler,
+            httpResponse -> {
+                if (!httpResponse.getHeaders().containsKey("location")) {
+                    return true;
                 }
+
+                Uri redirectUri = Uri.parse(httpResponse.getHeader("location"));
+                return (
+                    tenantConfiguration.getRedirectURI().getHost().equals(redirectUri.getHost()) ||
+                    (
+                        tenantConfiguration.getIssuer().getHost().equals(redirectUri.getHost()) &&
+                        "oauth2/error".equals(redirectUri.getPath())
+                    )
+                );
+            }
         );
 
         if (!response.getHeaders().containsKey("location")) {
@@ -68,8 +68,8 @@ public class Flow {
         Uri redirectUri = Uri.parse(response.getHeader("location"));
         if (redirectUri.getQueryParameterNames().contains("error")) {
             throw new NativeSDKError.OIDCError(
-                    redirectUri.getQueryParameter("error"),
-                    redirectUri.getQueryParameter("error_description")
+                redirectUri.getQueryParameter("error"),
+                redirectUri.getQueryParameter("error_description")
             );
         }
 
@@ -87,44 +87,44 @@ public class Flow {
 
     public HttpClient.HttpResponse initForm() {
         return HttpClient.post(
-                tenantConfiguration.getInitEndpoint(),
-                cookieHandler,
-                httpRequest -> httpRequest.setBearerToken(sessionId)
+            tenantConfiguration.getInitEndpoint(),
+            cookieHandler,
+            httpRequest -> httpRequest.setBearerToken(sessionId)
         );
     }
 
     public HttpClient.HttpResponse submitForm(String formId, String requestBody) {
         return HttpClient.post(
-                tenantConfiguration.getFormEndpoint(formId),
-                cookieHandler,
-                httpRequest -> {
-                    httpRequest.setContentType("application/json");
-                    httpRequest.setBearerToken(sessionId);
-                    httpRequest.setBody(requestBody);
-                }
+            tenantConfiguration.getFormEndpoint(formId),
+            cookieHandler,
+            httpRequest -> {
+                httpRequest.setContentType("application/json");
+                httpRequest.setBearerToken(sessionId);
+                httpRequest.setBody(requestBody);
+            }
         );
     }
 
     public Session tokenExchange(String codeToken) {
         HttpClient.HttpResponse response = HttpClient.post(
-                tenantConfiguration.getTokenEndpoint(),
-                cookieHandler,
-                httpRequest -> {
-                    httpRequest.setContentType("application/x-www-form-urlencoded");
-                    httpRequest.setFollowRedirects(false);
-                    httpRequest.setBody(
-                            tenantConfiguration
-                                    .getIssuer()
-                                    .buildUpon()
-                                    .appendQueryParameter("grant_type", "authorization_code")
-                                    .appendQueryParameter("client_id", tenantConfiguration.getClientId())
-                                    .appendQueryParameter("code_verifier", oidcParams.getCodeVerifier())
-                                    .appendQueryParameter("code", codeToken)
-                                    .appendQueryParameter("redirect_uri", tenantConfiguration.getRedirectURI().toString())
-                                    .build()
-                                    .getQuery()
-                    );
-                }
+            tenantConfiguration.getTokenEndpoint(),
+            cookieHandler,
+            httpRequest -> {
+                httpRequest.setContentType("application/x-www-form-urlencoded");
+                httpRequest.setFollowRedirects(false);
+                httpRequest.setBody(
+                    tenantConfiguration
+                        .getIssuer()
+                        .buildUpon()
+                        .appendQueryParameter("grant_type", "authorization_code")
+                        .appendQueryParameter("client_id", tenantConfiguration.getClientId())
+                        .appendQueryParameter("code_verifier", oidcParams.getCodeVerifier())
+                        .appendQueryParameter("code", codeToken)
+                        .appendQueryParameter("redirect_uri", tenantConfiguration.getRedirectURI().toString())
+                        .build()
+                        .getQuery()
+                );
+            }
         );
 
         if (response.getResponseCode() != 200) {
@@ -141,33 +141,32 @@ public class Flow {
     }
 
     public HttpClient.HttpResponse follow(Uri uri) {
-        return HttpClient.get(uri, cookieHandler, httpRequest -> {
-        });
+        return HttpClient.get(uri, cookieHandler, httpRequest -> {});
     }
 
     public static Session refreshToken(
-            TenantConfiguration tenantConfiguration,
-            CookieHandler cookieHandler,
-            String refreshToken
+        TenantConfiguration tenantConfiguration,
+        CookieHandler cookieHandler,
+        String refreshToken
     ) {
         HttpClient.HttpResponse response = HttpClient.post(
-                tenantConfiguration.getTokenEndpoint(),
-                cookieHandler,
-                httpRequest -> {
-                    httpRequest.setContentType("application/x-www-form-urlencoded");
-                    httpRequest.setFollowRedirects(false);
-                    httpRequest.setBody(
-                            tenantConfiguration
-                                    .getIssuer()
-                                    .buildUpon()
-                                    .appendQueryParameter("grant_type", "refresh_token")
-                                    .appendQueryParameter("refresh_token", refreshToken)
-                                    .appendQueryParameter("client_id", tenantConfiguration.getClientId())
-                                    .appendQueryParameter("redirect_uri", tenantConfiguration.getRedirectURI().toString())
-                                    .build()
-                                    .getQuery()
-                    );
-                }
+            tenantConfiguration.getTokenEndpoint(),
+            cookieHandler,
+            httpRequest -> {
+                httpRequest.setContentType("application/x-www-form-urlencoded");
+                httpRequest.setFollowRedirects(false);
+                httpRequest.setBody(
+                    tenantConfiguration
+                        .getIssuer()
+                        .buildUpon()
+                        .appendQueryParameter("grant_type", "refresh_token")
+                        .appendQueryParameter("refresh_token", refreshToken)
+                        .appendQueryParameter("client_id", tenantConfiguration.getClientId())
+                        .appendQueryParameter("redirect_uri", tenantConfiguration.getRedirectURI().toString())
+                        .build()
+                        .getQuery()
+                );
+            }
         );
 
         if (response.getResponseCode() != 200) {
@@ -189,7 +188,7 @@ public class Flow {
                 session.setIdToken(body.getString("id_token"));
 
                 if (
-                        oidcParams != null && !Objects.equals(oidcParams.getNonce(), session.getIdTokenClaims().getNonce())
+                    oidcParams != null && !Objects.equals(oidcParams.getNonce(), session.getIdTokenClaims().getNonce())
                 ) {
                     throw new RuntimeException("Nonce mismatch");
                 }
@@ -208,24 +207,20 @@ public class Flow {
     public static void logout(TenantConfiguration tenantConfiguration, CookieHandler cookieHandler, Session session) {
         try {
             HttpClient.get(
-                    tenantConfiguration
-                            .getLogoutEndpoint()
-                            .buildUpon()
-                            .appendQueryParameter("id_token_hint", session.getIdToken())
-                            .appendQueryParameter("post_logout_redirect_uri", tenantConfiguration.getPostLogoutURI().toString())
-                            .build(),
-                    cookieHandler,
-                    httpRequest -> {
-                    }
+                tenantConfiguration
+                    .getLogoutEndpoint()
+                    .buildUpon()
+                    .appendQueryParameter("id_token_hint", session.getIdToken())
+                    .appendQueryParameter("post_logout_redirect_uri", tenantConfiguration.getPostLogoutURI().toString())
+                    .build(),
+                cookieHandler,
+                httpRequest -> {}
             );
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
     }
 
     public static void revoke(TenantConfiguration tenantConfiguration, CookieHandler cookieHandler, Session session) {
-        final String token = session.getRefreshToken() != null
-                ? session.getRefreshToken()
-                : session.getAccessToken();
+        final String token = session.getRefreshToken() != null ? session.getRefreshToken() : session.getAccessToken();
 
         if (token == null) {
             return;
@@ -234,16 +229,15 @@ public class Flow {
         String typeHint = session.getRefreshToken() != null ? "refresh_token" : "access_token";
 
         HttpClient.get(
-                tenantConfiguration
-                        .getRevokeEndpoint()
-                        .buildUpon()
-                        .appendQueryParameter("client_id", tenantConfiguration.getClientId())
-                        .appendQueryParameter("token_type_hint", typeHint)
-                        .appendQueryParameter("token", token)
-                        .build(),
-                cookieHandler,
-                httpRequest -> {
-                }
+            tenantConfiguration
+                .getRevokeEndpoint()
+                .buildUpon()
+                .appendQueryParameter("client_id", tenantConfiguration.getClientId())
+                .appendQueryParameter("token_type_hint", typeHint)
+                .appendQueryParameter("token", token)
+                .build(),
+            cookieHandler,
+            httpRequest -> {}
         );
     }
 }
