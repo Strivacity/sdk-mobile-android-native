@@ -6,6 +6,7 @@ import android.net.Uri;
 import android.view.ViewGroup;
 
 import androidx.annotation.MainThread;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.browser.customtabs.CustomTabsIntent;
 
@@ -19,6 +20,7 @@ import com.strivacity.android.native_sdk.render.Form;
 import com.strivacity.android.native_sdk.render.ScreenRenderer;
 import com.strivacity.android.native_sdk.render.ViewFactory;
 import com.strivacity.android.native_sdk.util.HttpClient;
+import com.strivacity.android.native_sdk.util.Logging;
 
 import java.net.CookieHandler;
 import java.time.Instant;
@@ -38,6 +40,12 @@ public class NativeSDK {
     private final CookieHandler cookieHandler;
     private final SharedPreferences sharedPreferences;
 
+    @NonNull
+    private final HttpClient httpClient;
+
+    @NonNull
+    private final Logging logging;
+
     // Per-login
     private Flow flow;
     private ScreenRenderer screenRenderer;
@@ -51,35 +59,65 @@ public class NativeSDK {
         TenantConfiguration tenantConfiguration,
         ViewFactory viewFactory,
         CookieHandler cookieHandler,
-        SharedPreferences sharedPreferences
+        SharedPreferences sharedPreferences,
+        @NonNull Logging logging,
+        @NonNull HttpClient httpClient
     ) {
         this.tenantConfiguration = tenantConfiguration;
         this.sharedPreferences = sharedPreferences;
         this.viewFactory = viewFactory;
         this.cookieHandler = cookieHandler;
         this.backgroundThread = Executors.newSingleThreadExecutor();
+        this.logging = logging;
+        this.httpClient = httpClient;
 
         if (sharedPreferences != null) {
             String data = sharedPreferences.getString(STORE_KEY, null);
             if (data != null) {
+                logging.info("Session restored");
                 this.session = new Session(data);
             }
+        } else {
+            logging.warn("No shared preference provided - this could lead to unintended behavior.");
         }
+    }
+
+    public NativeSDK(
+        TenantConfiguration tenantConfiguration,
+        ViewFactory viewFactory,
+        CookieHandler cookieHandler,
+        SharedPreferences sharedPreferences
+    ) {
+        this(tenantConfiguration, viewFactory, cookieHandler, sharedPreferences, new Logging.DefaultLogging());
+    }
+
+    private NativeSDK(
+        TenantConfiguration tenantConfiguration,
+        ViewFactory viewFactory,
+        CookieHandler cookieHandler,
+        SharedPreferences sharedPreferences,
+        @NonNull Logging logging
+    ) {
+        this(tenantConfiguration, viewFactory, cookieHandler, sharedPreferences, logging, new HttpClient(logging));
     }
 
     public IdTokenClaims getIdTokenClaims() {
         if (session == null) {
+            logging.debug("ID token claims requested but no session is available");
             return null;
         }
 
+        logging.debug("ID Token claims retrieved");
         return session.getIdTokenClaims();
     }
 
     public String getAccessToken() {
         if (session == null) {
+            logging.debug("Access token requested but no session is available");
             return null;
         }
 
+        logging.debug("Access token retrieved");
         return session.getAccessToken();
     }
 
@@ -96,14 +134,19 @@ public class NativeSDK {
 
             if (!hasValidAccessToken && session.getRefreshToken() != null) {
                 try {
-                    session = Flow.refreshToken(tenantConfiguration, cookieHandler, session.getRefreshToken());
+                    logging.debug("Authentication check - attempting to refresh token");
+                    session =
+                        Flow.refreshToken(tenantConfiguration, cookieHandler, session.getRefreshToken(), httpClient);
                     if (sharedPreferences != null) {
                         SharedPreferences.Editor edit = sharedPreferences.edit();
                         edit.putString(STORE_KEY, session.toString());
                         edit.apply();
                     }
                     hasValidAccessToken = true;
-                } catch (Exception ignored) {}
+                    logging.debug("Authentication check - tokens refreshed, authenticated: $authenticated");
+                } catch (Exception ex) {
+                    logging.debug("Authentication check failed: " + ex.getMessage(), ex);
+                }
             }
 
             boolean authenticated = hasValidAccessToken;
@@ -111,7 +154,10 @@ public class NativeSDK {
             if (!authenticated) {
                 session = null;
             }
-            executeOnMain(() -> onResponse.accept(authenticated));
+            executeOnMain(() -> {
+                logging.debug("Authentication check - authenticated:" + authenticated);
+                onResponse.accept(authenticated);
+            });
         });
     }
 
@@ -123,14 +169,16 @@ public class NativeSDK {
         Consumer<Throwable> onError
     ) {
         backgroundThread.execute(() -> {
+            logging.info("Starting login flow");
             try {
                 this.onSuccess = onSuccess;
                 this.onError = onError;
-                flow = new Flow(tenantConfiguration, cookieHandler);
+                flow = new Flow(tenantConfiguration, cookieHandler, logging, httpClient);
                 screenRenderer =
                     new ScreenRenderer(
                         viewFactory,
                         parentLayout,
+                        logging,
                         this::submitForm,
                         finalizeUri -> {
                             HttpClient.HttpResponse finalizeResponse = flow.follow(finalizeUri);
@@ -143,9 +191,18 @@ public class NativeSDK {
                     return;
                 }
             } catch (NativeSDKError.OIDCError oidcError) {
+                logging.info("Login flow failed " + oidcError.toString());
+                logging.debug(
+                    String.format(
+                        "OIDC ERROR: %s, Description: %s",
+                        oidcError.getError(),
+                        oidcError.getErrorDescription()
+                    )
+                );
                 error(oidcError);
                 return;
             } catch (Exception e) {
+                logging.error("Login flow filed" + e, e);
                 error(new NativeSDKError.UnknownError(e));
                 return;
             }
@@ -195,14 +252,16 @@ public class NativeSDK {
 
     @MainThread
     public void logout() {
+        logging.debug("Logging user out");
         backgroundThread.execute(() -> {
-            Flow.logout(tenantConfiguration, cookieHandler, session);
+            Flow.logout(tenantConfiguration, cookieHandler, session, httpClient);
             session = null;
             if (sharedPreferences != null) {
                 SharedPreferences.Editor edit = sharedPreferences.edit();
                 edit.remove(STORE_KEY);
                 edit.apply();
             }
+            logging.info("User logged out successfully");
         });
     }
 
@@ -219,8 +278,10 @@ public class NativeSDK {
             HttpClient.HttpResponse httpResponse;
 
             if (form == null) {
+                logging.debug("Starting login Journey Flow");
                 httpResponse = flow.initForm();
             } else {
+                logging.debug(String.format("Submitting form %s", form.getId()));
                 httpResponse = flow.submitForm(form.getId(), form.requestBody().toString());
             }
 
@@ -228,6 +289,8 @@ public class NativeSDK {
                 this.screenRenderer.showScreen(httpResponse);
             } catch (Exception e) {
                 executeOnMain(() -> {
+                    logging.debug(String.format("%s", e));
+                    logging.warn("Triggering cloud initiated fallback");
                     CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder().build();
                     customTabsIntent.intent.setPackage("com.android.chrome");
 
@@ -251,6 +314,8 @@ public class NativeSDK {
             edit.putString(STORE_KEY, session.toString());
             edit.apply();
         }
+
+        logging.info("User logged in successfully");
 
         if (onSuccess != null) {
             executeOnMain(() -> onSuccess.accept(idTokenClaims));

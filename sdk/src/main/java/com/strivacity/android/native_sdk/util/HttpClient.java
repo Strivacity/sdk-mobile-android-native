@@ -2,6 +2,8 @@ package com.strivacity.android.native_sdk.util;
 
 import android.net.Uri;
 
+import androidx.annotation.NonNull;
+
 import lombok.Data;
 
 import java.io.BufferedReader;
@@ -23,26 +25,22 @@ import java.util.function.Function;
 
 public class HttpClient {
 
-    public static HttpResponse get(Uri uri, CookieHandler cookieHandler, Consumer<HttpRequest> httpCustomizer) {
-        CookieHandler defaultHandler = CookieHandler.getDefault();
-        try {
-            CookieHandler.setDefault(cookieHandler);
-            URL url = new URL(uri.toString());
-            HttpRequest httpRequest = new HttpRequest((HttpURLConnection) url.openConnection(), "GET");
-            httpCustomizer.accept(httpRequest);
-            return httpRequest.connect();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            CookieHandler.setDefault(defaultHandler);
-        }
+    @NonNull
+    private final Logging logging;
+
+    public HttpClient(@NonNull Logging logging) {
+        this.logging = logging;
     }
 
-    public static HttpResponse followUntil(
-        Uri uri,
-        CookieHandler cookieHandler,
-        Function<HttpResponse, Boolean> predicate
-    ) {
+    public HttpResponse get(Uri uri, CookieHandler cookieHandler, Consumer<HttpRequest> httpCustomizer) {
+        return send("GET", uri, cookieHandler, httpCustomizer);
+    }
+
+    public HttpResponse post(Uri uri, CookieHandler cookieHandler, Consumer<HttpRequest> httpCustomizer) {
+        return send("POST", uri, cookieHandler, httpCustomizer);
+    }
+
+    public HttpResponse followUntil(Uri uri, CookieHandler cookieHandler, Function<HttpResponse, Boolean> predicate) {
         CookieHandler defaultHandler = CookieHandler.getDefault();
 
         try {
@@ -71,15 +69,55 @@ public class HttpClient {
         throw new NoSuchElementException();
     }
 
-    public static HttpResponse post(Uri uri, CookieHandler cookieHandler, Consumer<HttpRequest> httpCustomizer) {
+    private HttpResponse send(
+        String method,
+        Uri uri,
+        CookieHandler cookieHandler,
+        Consumer<HttpRequest> httpCustomizer
+    ) {
+        logging.debug(String.format("HTTP REQ [%s] %s", method, uri.getPath()));
         CookieHandler defaultHandler = CookieHandler.getDefault();
 
         try {
             CookieHandler.setDefault(cookieHandler);
             URL url = new URL(uri.toString());
-            HttpRequest httpRequest = new HttpRequest((HttpURLConnection) url.openConnection(), "POST");
+            HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
+            HttpRequest httpRequest = new HttpRequest(httpURLConnection, method) {
+                {
+                    setFollowRedirects(false);
+                }
+            };
             httpCustomizer.accept(httpRequest);
-            return httpRequest.connect();
+            final HttpResponse response = httpRequest.connect();
+            final int statusCode = response.getResponseCode();
+            if (statusCode == 301 || statusCode == 302) {
+                final Uri locationUri = Uri.parse(response.getHeader("Location"));
+                final String scheme = locationUri.getScheme();
+                if ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme)) {
+                    logging.debug(
+                        String.format(
+                            "HTTP RES [%d] %s Redirecting -> %s",
+                            response.getResponseCode(),
+                            uri.getPath(),
+                            locationUri.getPath()
+                        )
+                    );
+                } else {
+                    logging.debug(
+                        String.format(
+                            "HTTP RES [%d] %s Redirecting -> %s://%s%s",
+                            response.getResponseCode(),
+                            uri.getPath(),
+                            scheme,
+                            locationUri.getAuthority(),
+                            locationUri.getPath()
+                        )
+                    );
+                }
+            } else {
+                logging.debug(String.format("HTTP RES [%d] %s", response.getResponseCode(), uri.getPath()));
+            }
+            return response;
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -93,6 +131,7 @@ public class HttpClient {
         private String body;
         private int responseCode;
         private Map<String, List<String>> headers;
+        private Uri url;
 
         public String getHeader(String header) {
             if (!headers.containsKey(header) || headers.get(header) == null || headers.get(header).isEmpty()) {
@@ -142,6 +181,7 @@ public class HttpClient {
             HttpResponse response = new HttpResponse();
             response.setHeaders(httpURLConnection.getHeaderFields());
             response.setResponseCode(httpURLConnection.getResponseCode());
+            response.setUrl(Uri.parse(httpURLConnection.getURL().toString()));
 
             InputStream responseStream = null;
             try {

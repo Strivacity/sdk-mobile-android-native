@@ -14,6 +14,7 @@ import com.strivacity.android.native_sdk.render.widgets.LayoutWidget;
 import com.strivacity.android.native_sdk.render.widgets.Widget;
 import com.strivacity.android.native_sdk.util.HttpClient;
 import com.strivacity.android.native_sdk.util.JSON;
+import com.strivacity.android.native_sdk.util.Logging;
 
 import org.json.JSONObject;
 
@@ -31,12 +32,18 @@ public class ScreenRenderer {
 
     private final ViewFactory viewFactory;
     private final ViewGroup parentLayout;
+    private final Logging logging;
     private final Consumer<Form> sendFormAction;
     private final Consumer<Uri> finalizeAction;
 
     private BrandingModel brandingModel;
     private Map<String, Form> forms;
     private LayoutWidget layout;
+
+    /**
+     * Screen ID for the last set of forms that were rendered
+     */
+    private String lastScreenId;
 
     @Getter
     private Uri fallbackUrl;
@@ -100,6 +107,7 @@ public class ScreenRenderer {
     }
 
     private void showErrorMessages(JSON messages) {
+        logging.info(String.format("Updating screen `%s` with messages", lastScreenId));
         messages
             .keys()
             .forEach(formId -> {
@@ -163,6 +171,7 @@ public class ScreenRenderer {
         LayoutModel.SingleLayoutModel singleLayoutModel,
         String screenId
     ) {
+        logging.info(String.format("Displaying screen `%s`", screenId));
         forms =
             formModels
                 .stream()
@@ -185,6 +194,8 @@ public class ScreenRenderer {
                 parentLayout.removeAllViews();
                 layout.render(parentLayout);
             });
+
+        lastScreenId = screenId;
     }
 
     public static void setEnabled(View view, boolean enabled) {

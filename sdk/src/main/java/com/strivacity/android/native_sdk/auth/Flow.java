@@ -2,12 +2,14 @@ package com.strivacity.android.native_sdk.auth;
 
 import android.net.Uri;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.strivacity.android.native_sdk.auth.config.LoginParameters;
 import com.strivacity.android.native_sdk.auth.config.OidcParams;
 import com.strivacity.android.native_sdk.auth.config.TenantConfiguration;
 import com.strivacity.android.native_sdk.util.HttpClient;
+import com.strivacity.android.native_sdk.util.Logging;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -30,9 +32,22 @@ public class Flow {
 
     private String sessionId;
 
-    public Flow(TenantConfiguration tenantConfiguration, CookieHandler cookieHandler) {
+    @NonNull
+    private final Logging logging;
+
+    @NonNull
+    private final HttpClient httpClient;
+
+    public Flow(
+        TenantConfiguration tenantConfiguration,
+        CookieHandler cookieHandler,
+        @NonNull Logging logging,
+        @NonNull HttpClient httpClient
+    ) {
         this.tenantConfiguration = tenantConfiguration;
         this.cookieHandler = cookieHandler;
+        this.logging = logging;
+        this.httpClient = httpClient;
 
         try {
             oidcParams = new OidcParams();
@@ -42,7 +57,8 @@ public class Flow {
     }
 
     public Uri startSession(LoginParameters loginParameters) {
-        HttpClient.HttpResponse response = HttpClient.followUntil(
+        logging.info("Login flow started");
+        HttpClient.HttpResponse response = httpClient.followUntil(
             tenantConfiguration.getAuthEndpoint(oidcParams, loginParameters),
             cookieHandler,
             httpResponse -> {
@@ -62,6 +78,7 @@ public class Flow {
         );
 
         if (!response.getHeaders().containsKey("location")) {
+            logging.warn("Expected to find location but none were found");
             throw new NativeSDKError.OIDCError("OIDC Error", response.getBody());
         }
 
@@ -86,7 +103,7 @@ public class Flow {
     }
 
     public HttpClient.HttpResponse initForm() {
-        return HttpClient.post(
+        return httpClient.post(
             tenantConfiguration.getInitEndpoint(),
             cookieHandler,
             httpRequest -> httpRequest.setBearerToken(sessionId)
@@ -94,7 +111,7 @@ public class Flow {
     }
 
     public HttpClient.HttpResponse submitForm(String formId, String requestBody) {
-        return HttpClient.post(
+        return httpClient.post(
             tenantConfiguration.getFormEndpoint(formId),
             cookieHandler,
             httpRequest -> {
@@ -106,7 +123,7 @@ public class Flow {
     }
 
     public Session tokenExchange(String codeToken) {
-        HttpClient.HttpResponse response = HttpClient.post(
+        HttpClient.HttpResponse response = httpClient.post(
             tenantConfiguration.getTokenEndpoint(),
             cookieHandler,
             httpRequest -> {
@@ -141,15 +158,16 @@ public class Flow {
     }
 
     public HttpClient.HttpResponse follow(Uri uri) {
-        return HttpClient.get(uri, cookieHandler, httpRequest -> {});
+        return httpClient.get(uri, cookieHandler, httpRequest -> {});
     }
 
     public static Session refreshToken(
         TenantConfiguration tenantConfiguration,
         CookieHandler cookieHandler,
-        String refreshToken
+        String refreshToken,
+        @NonNull HttpClient httpClient
     ) {
-        HttpClient.HttpResponse response = HttpClient.post(
+        HttpClient.HttpResponse response = httpClient.post(
             tenantConfiguration.getTokenEndpoint(),
             cookieHandler,
             httpRequest -> {
@@ -204,9 +222,14 @@ public class Flow {
         }
     }
 
-    public static void logout(TenantConfiguration tenantConfiguration, CookieHandler cookieHandler, Session session) {
+    public static void logout(
+        TenantConfiguration tenantConfiguration,
+        CookieHandler cookieHandler,
+        Session session,
+        @NonNull HttpClient httpClient
+    ) {
         try {
-            HttpClient.get(
+            httpClient.get(
                 tenantConfiguration
                     .getLogoutEndpoint()
                     .buildUpon()
