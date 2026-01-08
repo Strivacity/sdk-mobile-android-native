@@ -265,6 +265,22 @@ public class NativeSDK {
         });
     }
 
+    @MainThread
+    public void revoke() {
+        backgroundThread.execute(() -> {
+            try {
+                Flow.revoke(tenantConfiguration, cookieHandler, session);
+                if (sharedPreferences != null) {
+                    SharedPreferences.Editor edit = sharedPreferences.edit();
+                    edit.remove(STORE_KEY);
+                    edit.apply();
+                }
+            } catch (Throwable e) {} finally {
+                session = null;
+            }
+        });
+    }
+
     public void refreshScreen() {
         if (screenRenderer == null || flow == null) {
             return;
