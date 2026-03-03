@@ -403,106 +403,94 @@ public class NativeSDK {
             if (form == null) {
                 logging.debug("Starting login Journey Flow");
                 httpResponse = flow.initForm();
-            } else {
-                logging.debug(String.format("Submitting form %s", form.getId()));
-                httpResponse = flow.submitForm(form.getId(), form.requestBody().toString());
-
-                JSONObject requestBody = form.requestBody();
-                if (Set.of("passkeyEnroll", "mfaEnrollWebAuthn").contains(form.getId())) {
-                    form
-                        .getWidgets()
-                        .values()
-                        .stream()
-                        .filter(widget ->
-                            widget instanceof PasskeyEnrollWidget || widget instanceof WebauthnEnrollWidget
-                        )
-                        .map(widget -> {
-                            if (widget instanceof PasskeyEnrollWidget) {
-                                return ((PasskeyEnrollWidget) widget).getEnrollOptions();
-                            }
-
-                            return ((WebauthnEnrollWidget) widget).getEnrollOptions();
-                        })
-                        .forEach(enrollOptions ->
-                            passkeyEnroll(
-                                viewFactory.getContext(),
-                                enrollOptions.getJsonObject().toString(),
-                                errorMessage ->
-                                    viewFactory
-                                        .getContext()
-                                        .getMainExecutor()
-                                        .execute(() -> {
-                                            Toast
-                                                .makeText(viewFactory.getContext(), errorMessage, Toast.LENGTH_SHORT)
-                                                .show();
-                                            ScreenRenderer.setEnabled(screenRenderer.getParentLayout(), true);
-                                        }),
-                                credentialData -> {
-                                    try {
-                                        requestBody.put("credentialData", new JSONObject(credentialData));
-                                    } catch (JSONException e) {
-                                        throw new RuntimeException(e);
-                                    }
-
-                                    renderScreen(flow.submitForm(form.getId(), requestBody.toString()));
-                                }
-                            )
-                        );
-                } else {
-                    if (Set.of("passkey", "mfaWebAuthnAssertion").contains(form.getId())) {
-                        form
-                            .getWidgets()
-                            .values()
-                            .stream()
-                            .filter(widget ->
-                                widget instanceof PasskeyLoginWidget || widget instanceof WebauthnLoginWidget
-                            )
-                            .map(widget -> {
-                                if (widget instanceof PasskeyLoginWidget) {
-                                    return ((PasskeyLoginWidget) widget).getAssertionOptions();
-                                }
-
-                                return ((WebauthnLoginWidget) widget).getAssertionOptions();
-                            })
-                            .forEach(assertionOptions ->
-                                passkeyLogin(
-                                    viewFactory.getContext(),
-                                    assertionOptions.getJsonObject().toString(),
-                                    errorMessage ->
-                                        viewFactory
-                                            .getContext()
-                                            .getMainExecutor()
-                                            .execute(() -> {
-                                                Toast
-                                                    .makeText(
-                                                        viewFactory.getContext(),
-                                                        errorMessage,
-                                                        Toast.LENGTH_SHORT
-                                                    )
-                                                    .show();
-                                                ScreenRenderer.setEnabled(screenRenderer.getParentLayout(), true);
-                                            }),
-                                    credentialData -> {
-                                        try {
-                                            requestBody.put(
-                                                "passkey".equals(form.getId()) ? "passkey" : "assertion",
-                                                new JSONObject(credentialData)
-                                            );
-                                        } catch (JSONException e) {
-                                            throw new RuntimeException(e);
-                                        }
-
-                                        renderScreen(flow.submitForm(form.getId(), requestBody.toString()));
-                                    }
-                                )
-                            );
-                    } else {
-                        renderScreen(flow.submitForm(form.getId(), requestBody.toString()));
-                    }
-                }
+                renderScreen(httpResponse);
+                return;
             }
+            logging.debug(String.format("Submitting form %s", form.getId()));
 
-            renderScreen(httpResponse);
+            JSONObject requestBody = form.requestBody();
+            if (Set.of("passkeyEnroll", "mfaEnrollWebAuthn").contains(form.getId())) {
+                form
+                    .getWidgets()
+                    .values()
+                    .stream()
+                    .filter(widget -> widget instanceof PasskeyEnrollWidget || widget instanceof WebauthnEnrollWidget)
+                    .map(widget -> {
+                        if (widget instanceof PasskeyEnrollWidget) {
+                            return ((PasskeyEnrollWidget) widget).getEnrollOptions();
+                        }
+
+                        return ((WebauthnEnrollWidget) widget).getEnrollOptions();
+                    })
+                    .forEach(enrollOptions ->
+                        passkeyEnroll(
+                            viewFactory.getContext(),
+                            enrollOptions.getJsonObject().toString(),
+                            errorMessage ->
+                                viewFactory
+                                    .getContext()
+                                    .getMainExecutor()
+                                    .execute(() -> {
+                                        Toast
+                                            .makeText(viewFactory.getContext(), errorMessage, Toast.LENGTH_SHORT)
+                                            .show();
+                                        ScreenRenderer.setEnabled(screenRenderer.getParentLayout(), true);
+                                    }),
+                            credentialData -> {
+                                try {
+                                    requestBody.put("credentialData", new JSONObject(credentialData));
+                                } catch (JSONException e) {
+                                    throw new RuntimeException(e);
+                                }
+
+                                renderScreen(flow.submitForm(form.getId(), requestBody.toString()));
+                            }
+                        )
+                    );
+            } else if (Set.of("passkey", "mfaWebAuthnAssertion").contains(form.getId())) {
+                form
+                    .getWidgets()
+                    .values()
+                    .stream()
+                    .filter(widget -> widget instanceof PasskeyLoginWidget || widget instanceof WebauthnLoginWidget)
+                    .map(widget -> {
+                        if (widget instanceof PasskeyLoginWidget) {
+                            return ((PasskeyLoginWidget) widget).getAssertionOptions();
+                        }
+
+                        return ((WebauthnLoginWidget) widget).getAssertionOptions();
+                    })
+                    .forEach(assertionOptions ->
+                        passkeyLogin(
+                            viewFactory.getContext(),
+                            assertionOptions.getJsonObject().toString(),
+                            errorMessage ->
+                                viewFactory
+                                    .getContext()
+                                    .getMainExecutor()
+                                    .execute(() -> {
+                                        Toast
+                                            .makeText(viewFactory.getContext(), errorMessage, Toast.LENGTH_SHORT)
+                                            .show();
+                                        ScreenRenderer.setEnabled(screenRenderer.getParentLayout(), true);
+                                    }),
+                            credentialData -> {
+                                try {
+                                    requestBody.put(
+                                        "passkey".equals(form.getId()) ? "passkey" : "assertion",
+                                        new JSONObject(credentialData)
+                                    );
+                                } catch (JSONException e) {
+                                    throw new RuntimeException(e);
+                                }
+
+                                renderScreen(flow.submitForm(form.getId(), requestBody.toString()));
+                            }
+                        )
+                    );
+            } else {
+                renderScreen(flow.submitForm(form.getId(), requestBody.toString()));
+            }
         });
     }
 
@@ -613,6 +601,7 @@ public class NativeSDK {
         Consumer<String> onResult
     ) {
         CredentialManager credentialManager = CredentialManager.create(context);
+        //        PasskeySupport.checkPasskeyRequirements(context);
         CreatePublicKeyCredentialRequest createPublicKeyCredentialRequest = new CreatePublicKeyCredentialRequest(
             requestJson
         );
