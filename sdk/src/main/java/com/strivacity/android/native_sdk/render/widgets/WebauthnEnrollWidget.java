@@ -10,7 +10,7 @@ import com.strivacity.android.native_sdk.util.JSON;
 
 import lombok.Getter;
 
-public class WebauthnEnrollWidget extends Widget {
+public class WebauthnEnrollWidget extends Widget implements WithPasskeyEnrollOptions {
 
     @Getter
     private final JSON enrollOptions;

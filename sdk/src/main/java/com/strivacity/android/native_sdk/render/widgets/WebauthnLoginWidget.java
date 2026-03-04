@@ -10,7 +10,7 @@ import com.strivacity.android.native_sdk.util.JSON;
 
 import lombok.Getter;
 
-public class WebauthnLoginWidget extends Widget {
+public class WebauthnLoginWidget extends Widget implements WithPasskeyAssertionOptions {
 
     @Getter
     private final JSON assertionOptions;
