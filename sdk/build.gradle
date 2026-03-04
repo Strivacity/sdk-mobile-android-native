@@ -32,7 +32,10 @@ dependencies {
 	implementation libs.activity
 	implementation libs.browser
 	implementation libs.constraintlayout
+	// Credentials API for lvl 33+
 	implementation libs.credentials
+	// Credentials API for lvl [28;33]
+	implementation libs.credentials.playservices
 	testImplementation libs.junit
 	androidTestImplementation libs.ext.junit
 	androidTestImplementation libs.espresso.core

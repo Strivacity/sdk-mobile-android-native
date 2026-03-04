@@ -17,6 +17,7 @@ navigationUi = "2.7.7"
 activity = { module = "androidx.activity:activity", version.ref = "activity" }
 browser = { module = "androidx.browser:browser", version.ref = "browser" }
 credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
+credentials-playservices = {module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials"}
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
