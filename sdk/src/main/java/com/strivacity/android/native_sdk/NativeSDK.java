@@ -98,7 +98,15 @@ public class NativeSDK {
         this.sharedPreferences = sharedPreferences;
         this.viewFactory = viewFactory;
         this.cookieHandler = cookieHandler;
-        this.backgroundThread = Executors.newSingleThreadExecutor();
+        this.backgroundThread =
+            Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "sdk-background-thread");
+                thread.setUncaughtExceptionHandler((t, e) -> {
+                    logging.error("Unhandled exception on background thread: " + e.getMessage(), e);
+                    error(e);
+                });
+                return thread;
+            });
         this.logging = logging;
         this.httpClient = httpClient;
         this.sdkMode = sdkMode != null ? sdkMode : SdkMode.Android;
