@@ -10,6 +10,8 @@ import android.view.ViewGroup;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.credentials.exceptions.GetCredentialCancellationException;
+import androidx.credentials.exceptions.publickeycredential.CreatePublicKeyCredentialDomException;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -69,7 +71,13 @@ public class FirstFragment extends Fragment {
                 this::showProfileScreen,
                 throwable -> {
                     Toast.makeText(getContext(), throwable.getMessage(), Toast.LENGTH_SHORT).show();
-                    showLoginScreen();
+                    // Passkey can be cancelled by user - in every other scenario, display login screen
+                    if (
+                        !(throwable.getCause() instanceof GetCredentialCancellationException) &&
+                        !(throwable.getCause() instanceof CreatePublicKeyCredentialDomException)
+                    ) {
+                        showLoginScreen();
+                    }
                 }
             );
         });
