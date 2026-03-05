@@ -44,6 +44,14 @@ public abstract class WidgetModel {
                 return new DateWidgetModel(json);
             case "close":
                 return new CloseWidgetModel(json);
+            case "passkeyEnroll":
+                return new PasskeyEnrollWidgetModel(json);
+            case "passkeyLogin":
+                return new PasskeyLoginWidgetModel(json);
+            case "webauthnEnroll":
+                return new WebauthnEnrollWidgetModel(json);
+            case "webauthnLogin":
+                return new WebauthnLoginWidgetModel(json);
             default:
                 throw new RuntimeException("Unknown widget type " + type);
         }
@@ -182,6 +190,7 @@ public abstract class WidgetModel {
         private final String value;
         private final boolean readonly;
         private final String autocomplete;
+        private final Render render;
         private final String inputmode;
         private final Validator validator;
 
@@ -193,6 +202,13 @@ public abstract class WidgetModel {
             private final Integer maxLength;
             private final String regexp;
             private final boolean required;
+        }
+
+        @Data
+        @FieldNameConstants
+        public static class Render {
+
+            private final String autocompleteHint;
         }
 
         public InputWidgetModel(JSON json) {
@@ -213,16 +229,9 @@ public abstract class WidgetModel {
                         validator.string(Validator.Fields.regexp),
                         validator.bool(Validator.Fields.required)
                     );
-        }
-
-        public InputWidgetModel(String label, String value, boolean isRequired) {
-            super(WidgetModel.Fields.id);
-            this.label = label;
-            this.value = value;
-            this.readonly = false;
-            this.autocomplete = null;
-            this.inputmode = null;
-            this.validator = new Validator(null, null, null, isRequired);
+            JSON render = json.object(Fields.render);
+            this.render =
+                render == null ? null : new InputWidgetModel.Render(render.string(Render.Fields.autocompleteHint));
         }
     }
 
@@ -562,6 +571,194 @@ public abstract class WidgetModel {
 
             JSON render = json.object(DateWidgetModel.Fields.render);
             this.render = new DateWidgetModel.Render(render.string(Render.Fields.type));
+        }
+    }
+
+    @Getter
+    @EqualsAndHashCode(callSuper = true)
+    @FieldNameConstants
+    public static class PasskeyEnrollWidgetModel extends WidgetModel {
+
+        private final String label;
+        private final Render render;
+        private final JSON enrollOptions;
+
+        @Data
+        @FieldNameConstants
+        public static class Render {
+
+            private final String type;
+            private final PasskeyEnrollWidgetHint hint;
+        }
+
+        @Data
+        @FieldNameConstants
+        public static class PasskeyEnrollWidgetHint {
+
+            private final String variant;
+
+            PasskeyEnrollWidgetHint(JSON hint) {
+                this.variant = hint.string(PasskeyEnrollWidgetHint.Fields.variant);
+            }
+        }
+
+        public PasskeyEnrollWidgetModel(JSON json) {
+            super(json.string(WidgetModel.Fields.id));
+            this.label = json.string(Fields.label);
+            JSON render = json.object(SubmitWidgetModel.Fields.render);
+
+            this.render =
+                render == null
+                    ? null
+                    : new Render(
+                        render.string(Render.Fields.type),
+                        render.object(Render.Fields.hint) == null
+                            ? null
+                            : new PasskeyEnrollWidgetHint(render.object(Render.Fields.hint))
+                    );
+
+            this.enrollOptions = json.object(Fields.enrollOptions);
+        }
+    }
+
+    @Getter
+    @EqualsAndHashCode(callSuper = true)
+    @FieldNameConstants
+    public static class PasskeyLoginWidgetModel extends WidgetModel {
+
+        private final String label;
+        private final Render render;
+        private final JSON assertionOptions;
+
+        @Data
+        @FieldNameConstants
+        public static class Render {
+
+            private final String type;
+            private final PasskeyLoginWidgetHint hint;
+        }
+
+        @Data
+        @FieldNameConstants
+        public static class PasskeyLoginWidgetHint {
+
+            private final String variant;
+
+            PasskeyLoginWidgetHint(JSON hint) {
+                this.variant = hint.string(PasskeyLoginWidgetHint.Fields.variant);
+            }
+        }
+
+        public PasskeyLoginWidgetModel(JSON json) {
+            super(json.string(WidgetModel.Fields.id));
+            this.label = json.string(Fields.label);
+            JSON render = json.object(SubmitWidgetModel.Fields.render);
+
+            this.render =
+                render == null
+                    ? null
+                    : new Render(
+                        render.string(Render.Fields.type),
+                        render.object(Render.Fields.hint) == null
+                            ? null
+                            : new PasskeyLoginWidgetHint(render.object(Render.Fields.hint))
+                    );
+
+            this.assertionOptions = json.object(Fields.assertionOptions);
+        }
+    }
+
+    @Getter
+    @EqualsAndHashCode(callSuper = true)
+    @FieldNameConstants
+    public static class WebauthnEnrollWidgetModel extends WidgetModel {
+
+        private final String label;
+        private final Render render;
+        private final JSON enrollOptions;
+
+        @Data
+        @FieldNameConstants
+        public static class Render {
+
+            private final String type;
+            private final WebauthnEnrollWidgetHint hint;
+        }
+
+        @Data
+        @FieldNameConstants
+        public static class WebauthnEnrollWidgetHint {
+
+            private final String variant;
+
+            WebauthnEnrollWidgetHint(JSON hint) {
+                this.variant = hint.string(WebauthnEnrollWidgetHint.Fields.variant);
+            }
+        }
+
+        public WebauthnEnrollWidgetModel(JSON json) {
+            super(json.string(WidgetModel.Fields.id));
+            this.label = json.string(Fields.label);
+            JSON render = json.object(SubmitWidgetModel.Fields.render);
+
+            this.render =
+                render == null
+                    ? null
+                    : new Render(
+                        render.string(Render.Fields.type),
+                        render.object(Render.Fields.hint) == null
+                            ? null
+                            : new WebauthnEnrollWidgetHint(render.object(Render.Fields.hint))
+                    );
+
+            this.enrollOptions = json.object(Fields.enrollOptions);
+        }
+    }
+
+    @Getter
+    @EqualsAndHashCode(callSuper = true)
+    @FieldNameConstants
+    public static class WebauthnLoginWidgetModel extends WidgetModel {
+
+        private final String label;
+        private final Render render;
+        private final JSON assertionOptions;
+
+        @Data
+        @FieldNameConstants
+        public static class Render {
+
+            private final String type;
+            private final WebauthnLoginWidgetHint hint;
+        }
+
+        @Data
+        @FieldNameConstants
+        public static class WebauthnLoginWidgetHint {
+
+            private final String variant;
+
+            WebauthnLoginWidgetHint(JSON hint) {
+                this.variant = hint.string(WebauthnLoginWidgetHint.Fields.variant);
+            }
+        }
+
+        public WebauthnLoginWidgetModel(JSON json) {
+            super(json.string(WidgetModel.Fields.id));
+            this.label = json.string(Fields.label);
+            JSON render = json.object(SubmitWidgetModel.Fields.render);
+
+            this.render =
+                render == null
+                    ? null
+                    : new Render(
+                        render.string(Render.Fields.type),
+                        render.object(Render.Fields.hint) == null
+                            ? null
+                            : new WebauthnLoginWidgetHint(render.object(Render.Fields.hint))
+                    );
+
+            this.assertionOptions = json.object(PasskeyLoginWidgetModel.Fields.assertionOptions);
         }
     }
 }

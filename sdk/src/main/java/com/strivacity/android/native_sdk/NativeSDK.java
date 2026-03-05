@@ -1,5 +1,6 @@
 package com.strivacity.android.native_sdk;
 
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
@@ -10,6 +11,18 @@ import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.credentials.CreateCredentialResponse;
+import androidx.credentials.CreatePublicKeyCredentialRequest;
+import androidx.credentials.CreatePublicKeyCredentialResponse;
+import androidx.credentials.Credential;
+import androidx.credentials.CredentialManager;
+import androidx.credentials.GetCredentialRequest;
+import androidx.credentials.GetCredentialResponse;
+import androidx.credentials.GetPublicKeyCredentialOption;
+import androidx.credentials.PublicKeyCredential;
+import androidx.lifecycle.LifecycleCoroutineScope;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.LifecycleOwnerKt;
 
 import com.strivacity.android.native_sdk.auth.Flow;
 import com.strivacity.android.native_sdk.auth.IdTokenClaims;
@@ -20,12 +33,24 @@ import com.strivacity.android.native_sdk.auth.config.TenantConfiguration;
 import com.strivacity.android.native_sdk.render.Form;
 import com.strivacity.android.native_sdk.render.ScreenRenderer;
 import com.strivacity.android.native_sdk.render.ViewFactory;
+import com.strivacity.android.native_sdk.render.widgets.WithPasskeyAssertionOptions;
+import com.strivacity.android.native_sdk.render.widgets.WithPasskeyEnrollOptions;
 import com.strivacity.android.native_sdk.util.HttpClient;
 import com.strivacity.android.native_sdk.util.Logging;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import kotlinx.coroutines.CoroutineStart;
+import kotlinx.coroutines.Dispatchers;
+import kotlinx.coroutines.future.FutureKt;
+
 import java.net.CookieHandler;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -37,7 +62,10 @@ public class NativeSDK {
     // Configuration
     private final TenantConfiguration tenantConfiguration;
     private final Executor backgroundThread;
+
+    @NonNull
     private final ViewFactory viewFactory;
+
     private final CookieHandler cookieHandler;
     private final SharedPreferences sharedPreferences;
 
@@ -62,7 +90,7 @@ public class NativeSDK {
 
     public NativeSDK(
         TenantConfiguration tenantConfiguration,
-        ViewFactory viewFactory,
+        @NonNull ViewFactory viewFactory,
         CookieHandler cookieHandler,
         SharedPreferences sharedPreferences,
         @NonNull Logging logging,
@@ -73,7 +101,18 @@ public class NativeSDK {
         this.sharedPreferences = sharedPreferences;
         this.viewFactory = viewFactory;
         this.cookieHandler = cookieHandler;
-        this.backgroundThread = Executors.newSingleThreadExecutor();
+        this.backgroundThread =
+            Executors.newSingleThreadExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "sdk-background-thread");
+                thread.setUncaughtExceptionHandler((t, e) -> {
+                    logging.error("Unhandled exception on background thread: " + e.getMessage(), e);
+                    final Context context = viewFactory.getContext();
+                    if (context != null) {
+                        context.getMainExecutor().execute(() -> onError.accept(e));
+                    }
+                });
+                return thread;
+            });
         this.logging = logging;
         this.httpClient = httpClient;
         this.sdkMode = sdkMode != null ? sdkMode : SdkMode.Android;
@@ -378,12 +417,83 @@ public class NativeSDK {
             if (form == null) {
                 logging.debug("Starting login Journey Flow");
                 httpResponse = flow.initForm();
-            } else {
-                logging.debug(String.format("Submitting form %s", form.getId()));
-                httpResponse = flow.submitForm(form.getId(), form.requestBody().toString());
+                renderScreen(httpResponse);
+                return;
             }
+            logging.debug(String.format("Submitting form %s", form.getId()));
 
-            renderScreen(httpResponse);
+            JSONObject requestBody = form.requestBody();
+            if (passkeyEnrollmentFormIds.contains(form.getId())) {
+                form
+                    .getWidgets()
+                    .values()
+                    .stream()
+                    .filter(widget -> widget instanceof WithPasskeyEnrollOptions)
+                    .map(widget -> ((WithPasskeyEnrollOptions) widget).getEnrollOptions())
+                    .forEach(enrollOptions ->
+                        passkeyEnroll(
+                            viewFactory.getContext(),
+                            enrollOptions.getJsonObject().toString(),
+                            throwable -> {
+                                executeOnMain(() -> {
+                                    ScreenRenderer.setEnabled(screenRenderer.getParentLayout(), true);
+                                    onError.accept(throwable);
+                                });
+                            },
+                            credentialData -> {
+                                try {
+                                    requestBody.put("credentialData", new JSONObject(credentialData));
+                                } catch (JSONException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                HttpClient.HttpResponse enrollmentResponse = flow.submitForm(
+                                    form.getId(),
+                                    requestBody.toString()
+                                );
+                                renderScreen(enrollmentResponse);
+                            }
+                        )
+                    );
+            } else {
+                if (passkeyLoginFormIds.contains(form.getId())) {
+                    form
+                        .getWidgets()
+                        .values()
+                        .stream()
+                        .filter(widget -> widget instanceof WithPasskeyAssertionOptions)
+                        .map(widget -> ((WithPasskeyAssertionOptions) widget).getAssertionOptions())
+                        .forEach(assertionOptions ->
+                            passkeyLogin(
+                                viewFactory.getContext(),
+                                assertionOptions.getJsonObject().toString(),
+                                throwable -> {
+                                    executeOnMain(() -> {
+                                        ScreenRenderer.setEnabled(screenRenderer.getParentLayout(), true);
+                                        // not using error() because cleanup should not happen in this case
+                                        onError.accept(throwable);
+                                    });
+                                },
+                                credentialData -> {
+                                    try {
+                                        requestBody.put(
+                                            "passkey".equals(form.getId()) ? "passkey" : "assertion",
+                                            new JSONObject(credentialData)
+                                        );
+                                    } catch (JSONException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                    HttpClient.HttpResponse httpResponse1 = flow.submitForm(
+                                        form.getId(),
+                                        requestBody.toString()
+                                    );
+                                    renderScreen(httpResponse1);
+                                }
+                            )
+                        );
+                } else {
+                    renderScreen(flow.submitForm(form.getId(), requestBody.toString()));
+                }
+            }
         });
     }
 
@@ -486,4 +596,89 @@ public class NativeSDK {
             this.value = value;
         }
     }
+
+    private void passkeyEnroll(
+        Context context,
+        String requestJson,
+        Consumer<Throwable> onError,
+        Consumer<String> onResult
+    ) {
+        CredentialManager credentialManager = CredentialManager.create(context);
+        CreatePublicKeyCredentialRequest createPublicKeyCredentialRequest = new CreatePublicKeyCredentialRequest(
+            requestJson
+        );
+
+        final LifecycleCoroutineScope lifecycleScope = LifecycleOwnerKt.getLifecycleScope((LifecycleOwner) context);
+        CompletableFuture<Object> credentialFuture = FutureKt.future(
+            lifecycleScope,
+            Dispatchers.getIO(),
+            CoroutineStart.DEFAULT,
+            (scope, continuation) ->
+                credentialManager.createCredential(context, createPublicKeyCredentialRequest, continuation)
+        );
+        credentialFuture
+            .thenApply(result -> {
+                if (result instanceof CreateCredentialResponse) {
+                    CreatePublicKeyCredentialResponse response = (CreatePublicKeyCredentialResponse) result;
+                    return response.getRegistrationResponseJson();
+                }
+                throw new NativeSDKError.UnknownError(new RuntimeException("Passkey enrollment error"));
+            })
+            .whenCompleteAsync((json, throwable) -> {
+                if (throwable != null) {
+                    logging.debug("Could not create passkey", throwable);
+                    onError.accept(throwable);
+                } else {
+                    logging.debug("Passkey created");
+                    onResult.accept(json);
+                }
+            })
+            .join();
+    }
+
+    private void passkeyLogin(
+        Context context,
+        String requestJson,
+        Consumer<Throwable> onError,
+        Consumer<String> onResult
+    ) {
+        if (!(context instanceof LifecycleOwner)) {
+            throw new IllegalArgumentException("Expecting lifecycle owner to be passed as context");
+        }
+        CredentialManager credentialManager = CredentialManager.create(context);
+        GetPublicKeyCredentialOption option = new GetPublicKeyCredentialOption(requestJson);
+        GetCredentialRequest credentialRequest = new GetCredentialRequest(List.of(option));
+
+        final LifecycleCoroutineScope lifecycleScope = LifecycleOwnerKt.getLifecycleScope((LifecycleOwner) context);
+        CompletableFuture<Object> credentialFuture = FutureKt.future(
+            lifecycleScope,
+            Dispatchers.getIO(),
+            CoroutineStart.DEFAULT,
+            (scope, continuation) -> credentialManager.getCredential(context, credentialRequest, continuation)
+        );
+        credentialFuture
+            .thenApply(result -> {
+                // run on IO dispatcher
+                if (result instanceof GetCredentialResponse) {
+                    GetCredentialResponse response = (GetCredentialResponse) result;
+                    Credential credential = response.getCredential();
+                    return ((PublicKeyCredential) credential).getAuthenticationResponseJson();
+                }
+                throw new IllegalArgumentException(
+                    String.format("Expected GetCredentialResponse but received: %s", result.getClass().getSimpleName())
+                );
+            })
+            .whenCompleteAsync((json, throwable) -> {
+                if (throwable != null) {
+                    logging.debug("Could not use Passkey for login", throwable);
+                    onError.accept(throwable);
+                } else {
+                    onResult.accept(json);
+                }
+            })
+            .join();
+    }
+
+    static final Set<String> passkeyLoginFormIds = Set.of("passkey", "mfaWebAuthnAssertion");
+    static final Set<String> passkeyEnrollmentFormIds = Set.of("passkeyEnroll", "mfaEnrollWebAuthn");
 }

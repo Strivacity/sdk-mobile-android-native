@@ -12,10 +12,14 @@ import com.strivacity.android.native_sdk.render.widgets.InputWidget;
 import com.strivacity.android.native_sdk.render.widgets.LayoutWidget;
 import com.strivacity.android.native_sdk.render.widgets.MultiSelectWidget;
 import com.strivacity.android.native_sdk.render.widgets.PasscodeWidget;
+import com.strivacity.android.native_sdk.render.widgets.PasskeyEnrollWidget;
+import com.strivacity.android.native_sdk.render.widgets.PasskeyLoginWidget;
 import com.strivacity.android.native_sdk.render.widgets.PasswordWidget;
 import com.strivacity.android.native_sdk.render.widgets.PhoneWidget;
 import com.strivacity.android.native_sdk.render.widgets.StaticWidget;
 import com.strivacity.android.native_sdk.render.widgets.SubmitWidget;
+import com.strivacity.android.native_sdk.render.widgets.WebauthnEnrollWidget;
+import com.strivacity.android.native_sdk.render.widgets.WebauthnLoginWidget;
 import com.strivacity.android.native_sdk.render.widgets.Widget;
 import com.strivacity.android.native_sdk.render.widgets.select.simple.DropdownWidget;
 import com.strivacity.android.native_sdk.render.widgets.select.simple.RadioWidget;
@@ -60,6 +64,34 @@ public class ViewFactory {
             return getDateView((WidgetModel.DateWidgetModel) widgetModel, brandingModel, screenId, formId);
         } else if (widgetModel instanceof WidgetModel.CloseWidgetModel) {
             return getCloseView((WidgetModel.CloseWidgetModel) widgetModel, brandingModel, screenId, formId);
+        } else if (widgetModel instanceof WidgetModel.PasskeyEnrollWidgetModel) {
+            return getPasskeyEnrollView(
+                (WidgetModel.PasskeyEnrollWidgetModel) widgetModel,
+                brandingModel,
+                screenId,
+                formId
+            );
+        } else if (widgetModel instanceof WidgetModel.PasskeyLoginWidgetModel) {
+            return getPasskeyLoginView(
+                (WidgetModel.PasskeyLoginWidgetModel) widgetModel,
+                brandingModel,
+                screenId,
+                formId
+            );
+        } else if (widgetModel instanceof WidgetModel.WebauthnEnrollWidgetModel) {
+            return getWebauthnEnrollView(
+                (WidgetModel.WebauthnEnrollWidgetModel) widgetModel,
+                brandingModel,
+                screenId,
+                formId
+            );
+        } else if (widgetModel instanceof WidgetModel.WebauthnLoginWidgetModel) {
+            return getWebauthnLoginView(
+                (WidgetModel.WebauthnLoginWidgetModel) widgetModel,
+                brandingModel,
+                screenId,
+                formId
+            );
         }
 
         throw new RuntimeException();
@@ -177,5 +209,41 @@ public class ViewFactory {
         String formId
     ) {
         return new CloseWidget(context, closeWidgetModel);
+    }
+
+    protected PasskeyEnrollWidget getPasskeyEnrollView(
+        WidgetModel.PasskeyEnrollWidgetModel passkeyEnrollWidgetModel,
+        BrandingModel brandingModel,
+        String screenId,
+        String formId
+    ) {
+        return new PasskeyEnrollWidget(context, passkeyEnrollWidgetModel);
+    }
+
+    protected PasskeyLoginWidget getPasskeyLoginView(
+        WidgetModel.PasskeyLoginWidgetModel passkeyLoginWidgetModel,
+        BrandingModel brandingModel,
+        String screenId,
+        String formId
+    ) {
+        return new PasskeyLoginWidget(context, passkeyLoginWidgetModel);
+    }
+
+    protected WebauthnEnrollWidget getWebauthnEnrollView(
+        WidgetModel.WebauthnEnrollWidgetModel webauthnEnrollWidgetModel,
+        BrandingModel brandingModel,
+        String screenId,
+        String formId
+    ) {
+        return new WebauthnEnrollWidget(context, webauthnEnrollWidgetModel);
+    }
+
+    protected WebauthnLoginWidget getWebauthnLoginView(
+        WidgetModel.WebauthnLoginWidgetModel webauthnLoginWidgetModel,
+        BrandingModel brandingModel,
+        String screenId,
+        String formId
+    ) {
+        return new WebauthnLoginWidget(context, webauthnLoginWidgetModel);
     }
 }

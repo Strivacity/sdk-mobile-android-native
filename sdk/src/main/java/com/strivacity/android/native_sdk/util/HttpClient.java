@@ -119,6 +119,7 @@ public class HttpClient {
             }
             return response;
         } catch (Exception e) {
+            logging.warn(String.format("FAILED HTTP REQ [%s] %s", method, uri.getPath()), e);
             throw new RuntimeException(e);
         } finally {
             CookieHandler.setDefault(defaultHandler);
@@ -169,7 +170,7 @@ public class HttpClient {
                 outStreamWriter.close();
                 outputStream.close();
             } catch (Exception e) {
-                throw new RuntimeException();
+                throw new RuntimeException(e);
             }
         }
 
