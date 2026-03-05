@@ -10,11 +10,7 @@ The SDK uses the [PKCE extension to OAuth](https://tools.ietf.org/html/rfc7636) 
 
 ## How to use
 
-Strivacity SDK for Android is available on [MavenCentral](https://search.maven.org/search?q=g:com.strivacity.android%20AND%20a:native_sdk).
-
-```groovy
-implementation 'com.strivacity.android:native_sdk:<version>'
-```
+Strivacity SDK for Android is available on [GitHub releases](https://github.com/Strivacity/sdk-mobile-android-native/releases).
 
 ## Demo Application
 
