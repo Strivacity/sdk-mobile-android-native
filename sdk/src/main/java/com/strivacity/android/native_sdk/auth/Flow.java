@@ -21,6 +21,8 @@ import java.net.CookieHandler;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public class Flow {
@@ -308,14 +310,14 @@ public class Flow {
         }
     }
 
-    public static void logout(
+    public static String logout(
         TenantConfiguration tenantConfiguration,
         CookieHandler cookieHandler,
         Session session,
         @NonNull HttpClient httpClient
     ) {
         try {
-            httpClient.get(
+            final HttpClient.HttpResponse response = httpClient.get(
                 tenantConfiguration
                     .getLogoutEndpoint()
                     .buildUpon()
@@ -325,7 +327,14 @@ public class Flow {
                 cookieHandler,
                 httpRequest -> {}
             );
+            final Map<String, List<String>> headers = response.getHeaders();
+            final List<String> headerValues = headers.get("Location");
+            if (headerValues == null || headerValues.isEmpty()) {
+                return null;
+            }
+            return headerValues.get(0);
         } catch (Exception ignored) {}
+        return null;
     }
 
     public static void revoke(

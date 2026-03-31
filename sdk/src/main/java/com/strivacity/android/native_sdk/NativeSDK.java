@@ -373,7 +373,13 @@ public class NativeSDK {
     public void logout() {
         logging.debug("Logging user out");
         backgroundThread.execute(() -> {
-            Flow.logout(tenantConfiguration, cookieHandler, session, httpClient);
+            final String logoutRedirectUrl = Flow.logout(tenantConfiguration, cookieHandler, session, httpClient);
+            if (!tenantConfiguration.getPostLogoutURI().toString().equalsIgnoreCase(logoutRedirectUrl)) {
+                logging.warn(
+                    "Logout redirect does not match expected logout URL. " +
+                    "This is likely a misconfiguration of `TenantConfiguration.postLogoutURI`"
+                );
+            }
             session = null;
             if (sharedPreferences != null) {
                 SharedPreferences.Editor edit = sharedPreferences.edit();
@@ -571,7 +577,7 @@ public class NativeSDK {
      * applications to choose between different levels of layout and branding data.
      *
      * @see <a href="https://docs.strivacity.com/reference/journey-flow-api-for-native-clients#step-1-get-oauth2auth">
-     *      Journey Flow API for Native Clients</a>
+     * Journey Flow API for Native Clients</a>
      */
     public enum SdkMode {
         /**
