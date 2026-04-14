@@ -523,7 +523,6 @@ public class NativeSDK {
                 customTabsIntent.intent.setPackage("com.android.chrome");
 
                 customTabsIntent.intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                customTabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
 
                 try {
                     customTabsIntent.launchUrl(viewFactory.getContext(), screenRenderer.getFallbackUrl());
