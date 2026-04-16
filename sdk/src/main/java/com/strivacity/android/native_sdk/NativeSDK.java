@@ -520,7 +520,6 @@ public class NativeSDK {
                 logging.debug(String.format("%s", e));
                 logging.warn("Triggering cloud initiated fallback");
                 CustomTabsIntent customTabsIntent = new CustomTabsIntent.Builder().build();
-                customTabsIntent.intent.setPackage("com.android.chrome");
 
                 customTabsIntent.intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
