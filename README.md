@@ -33,12 +33,13 @@ TenantConfiguration tenantConfiguration = new TenantConfiguration(
 );
 
 NativeSDK nativeSDK =
-   new NativeSDK(
-       tenantConfiguration,
-       new ViewFactory(this),                           // An instance of com.strivacity.android.native_sdk.render.ViewFactory for rendering
-       new CookieManager(),                             // An instance of java.net.CookieManager for storing cookies between calls
-       this.getSharedPreferences("test", MODE_PRIVATE)  // An instance of android.content.SharedPreferences for storing tokens and claims
-   );
+    NativeSDK
+        .builder()
+        .tenantConfiguration(tenantConfiguration)
+        .viewFactory(new ViewFactory(this))
+        .cookieHandler(new CookieManager())
+        .sharedPreferences(this.getSharedPreferences("test", MODE_PRIVATE))
+        .build();
 ```
 
 ## Register the custom schema
