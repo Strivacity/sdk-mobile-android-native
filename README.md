@@ -33,12 +33,13 @@ TenantConfiguration tenantConfiguration = new TenantConfiguration(
 );
 
 NativeSDK nativeSDK =
-   new NativeSDK(
-       tenantConfiguration,
-       new ViewFactory(this),                           // An instance of com.strivacity.android.native_sdk.render.ViewFactory for rendering
-       new CookieManager(),                             // An instance of java.net.CookieManager for storing cookies between calls
-       this.getSharedPreferences("test", MODE_PRIVATE)  // An instance of android.content.SharedPreferences for storing tokens and claims
-   );
+    NativeSDK
+        .builder()
+        .tenantConfiguration(tenantConfiguration)
+        .viewFactory(new ViewFactory(this))
+        .cookieHandler(new CookieManager())
+        .sharedPreferences(this.getSharedPreferences("test", MODE_PRIVATE))
+        .build();
 ```
 
 ## Register the custom schema
@@ -91,6 +92,51 @@ In your primary `Activity` provide an implementation for the `onResume` method a
          nativeSDK.continueFlow(getIntent().getData());
      }
  }
+```
+
+### Network Configuration
+
+The `NetworkConfiguration` class controls the HTTP layer of the SDK. All properties are optional and fall back to sensible defaults. Use `NetworkConfiguration.builder()` to construct an instance, or `NetworkConfiguration.defaultConfiguration()` for the default settings.
+
+```java
+NetworkConfiguration networkConfiguration = NetworkConfiguration.builder()
+    .userAgent("strivacity-sdk-android")          // Value of the User-Agent header sent with every request
+    .customRequestHeaders(Collections.emptyMap()) // Extra headers appended to every request (keys must start with `x-sty-`)
+    .build();
+```
+
+**`userAgent`** — overrides the `User-Agent` header value. Useful when you need to identify your app alongside the SDK. Must be at least 3 characters after trimming; an `IllegalArgumentException` is thrown at construction time otherwise.
+
+**`customRequestHeaders`** — additional headers included in every outgoing request. Keys **must** satisfy all of the following rules:
+- prefixed with `x-sty-` (e.g. `x-sty-my-header`)
+- entirely **lowercase**
+- not equal to the bare prefix `"x-sty-"` (i.e. must have at least one character after the prefix)
+
+Violating any of these rules throws an `IllegalArgumentException` at construction time. Headers carrying the `x-sty-` prefix are forwarded to the Strivacity backend and are accessible inside **Hooks**, allowing server-side logic to act on values passed from the mobile app (e.g. app version, feature flags).
+
+#### Adding the SDK version header
+
+The `addSdkVersionCustomHeader()` method returns a copy of `NetworkConfiguration` with the `x-sty-sdk-version` header set to the current SDK version. If the header is already present, the existing instance is returned unchanged. This header is forwarded to server-side Hooks, making it easy to correlate backend events with a specific SDK release.
+
+```java
+NetworkConfiguration.defaultConfiguration().addSdkVersionCustomHeader()
+```
+
+> **Note for SDK developers:** The SDK version is sourced from the `sdkVersion` Gradle property (set via `-PsdkVersion=<value>` at build time). When the property is not provided — e.g. during local development — the version defaults to `0.0.0`.
+
+**Example — adding the SDK version and a custom app-version header:**
+
+```java
+NativeSDK nativeSDK = NativeSDK
+    .builder()
+    .tenantConfiguration(tenantConfiguration)
+    .networkConfiguration(
+        NetworkConfiguration.builder()
+            .customRequestHeaders(Map.of("x-sty-app-version", "1.2.3"))
+            .build()
+            .addSdkVersionCustomHeader()
+    )
+    .build();
 ```
 
 ## How to launch a login flow

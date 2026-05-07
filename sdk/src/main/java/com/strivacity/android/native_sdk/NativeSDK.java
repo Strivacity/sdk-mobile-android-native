@@ -29,6 +29,7 @@ import com.strivacity.android.native_sdk.auth.IdTokenClaims;
 import com.strivacity.android.native_sdk.auth.NativeSDKError;
 import com.strivacity.android.native_sdk.auth.Session;
 import com.strivacity.android.native_sdk.auth.config.LoginParameters;
+import com.strivacity.android.native_sdk.auth.config.NetworkConfiguration;
 import com.strivacity.android.native_sdk.auth.config.TenantConfiguration;
 import com.strivacity.android.native_sdk.render.Form;
 import com.strivacity.android.native_sdk.render.ScreenRenderer;
@@ -44,6 +45,8 @@ import org.json.JSONObject;
 import kotlinx.coroutines.CoroutineStart;
 import kotlinx.coroutines.Dispatchers;
 import kotlinx.coroutines.future.FutureKt;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 import java.net.CookieHandler;
 import java.time.Instant;
@@ -155,7 +158,14 @@ public class NativeSDK {
         SharedPreferences sharedPreferences,
         @NonNull Logging logging
     ) {
-        this(tenantConfiguration, viewFactory, cookieHandler, sharedPreferences, logging, new HttpClient(logging));
+        this(
+            tenantConfiguration,
+            viewFactory,
+            cookieHandler,
+            sharedPreferences,
+            logging,
+            new HttpClient(logging, NetworkConfiguration.defaultConfiguration())
+        );
     }
 
     public IdTokenClaims getIdTokenClaims() {
@@ -685,4 +695,64 @@ public class NativeSDK {
 
     static final Set<String> passkeyLoginFormIds = Set.of("passkey", "mfaWebAuthnAssertion");
     static final Set<String> passkeyEnrollmentFormIds = Set.of("passkeyEnroll", "mfaEnrollWebAuthn");
+
+    public static NativeSDKBuilder builder() {
+        return new NativeSDKBuilder();
+    }
+
+    /** Builds a {@link NativeSDK} instance. */
+    @Accessors(fluent = true)
+    public static final class NativeSDKBuilder {
+
+        /** Required. Tenant settings. */
+        @NonNull
+        @Setter
+        private TenantConfiguration tenantConfiguration;
+
+        /** Required. Provides Android context and view. */
+        @NonNull
+        @Setter
+        private ViewFactory viewFactory;
+
+        /** Optional. Cookie handler for HTTP requests. */
+        @Setter
+        private CookieHandler cookieHandler;
+
+        /** Optional. Storage for session persistence. */
+        @Setter
+        private SharedPreferences sharedPreferences;
+
+        /** Optional. Custom logger; defaults to {@link Logging.DefaultLogging}. */
+        @Setter
+        private Logging logging;
+
+        /** Optional. SDK mode; defaults to {@link SdkMode#Android}. */
+        @Setter
+        private SdkMode sdkMode;
+
+        /** Optional. Network settings; defaults to {@link NetworkConfiguration#defaultConfiguration()}. */
+        @Setter
+        private NetworkConfiguration networkConfiguration;
+
+        /** Builds the {@link NativeSDK}. Requires {@code viewFactory}. */
+        public NativeSDK build() {
+            Objects.requireNonNull(viewFactory);
+            Objects.requireNonNull(tenantConfiguration);
+            final Logging logging = this.logging != null ? this.logging : new Logging.DefaultLogging();
+            final NetworkConfiguration networkConfig = this.networkConfiguration != null
+                ? this.networkConfiguration
+                : NetworkConfiguration.defaultConfiguration();
+
+            final HttpClient httpClient = new HttpClient(logging, networkConfig);
+            return new NativeSDK(
+                tenantConfiguration,
+                viewFactory,
+                cookieHandler,
+                sharedPreferences,
+                logging,
+                httpClient,
+                sdkMode
+            );
+        }
+    }
 }

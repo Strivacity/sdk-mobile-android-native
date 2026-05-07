@@ -12,6 +12,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.strivacity.android.demo.databinding.ActivityMainBinding;
 import com.strivacity.android.demo.render.ViewFactory;
 import com.strivacity.android.native_sdk.NativeSDK;
+import com.strivacity.android.native_sdk.auth.config.NetworkConfiguration;
 import com.strivacity.android.native_sdk.auth.config.TenantConfiguration;
 
 import java.net.CookieManager;
@@ -36,12 +37,14 @@ public class MainActivity extends AppCompatActivity {
         );
 
         nativeSDK =
-            new NativeSDK(
-                tenantConfiguration,
-                new ViewFactory(this),
-                new CookieManager(),
-                this.getSharedPreferences("test", MODE_PRIVATE)
-            );
+            NativeSDK
+                .builder()
+                .tenantConfiguration(tenantConfiguration)
+                .viewFactory(new ViewFactory(this))
+                .cookieHandler(new CookieManager())
+                .sharedPreferences(this.getSharedPreferences("test", MODE_PRIVATE))
+                .networkConfiguration(NetworkConfiguration.defaultConfiguration())
+                .build();
 
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());

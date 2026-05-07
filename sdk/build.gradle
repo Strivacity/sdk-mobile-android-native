@@ -6,11 +6,16 @@ android {
 	namespace 'com.strivacity.android.native_sdk'
 	compileSdk 36
 
+	buildFeatures {
+		buildConfig true
+	}
+
 	defaultConfig {
 		minSdk 29
 		targetSdk 36
 
 		testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+		buildConfigField "String", "STRIVACITY_SDK_VERSION", "\"${project.hasProperty('sdkVersion') ? project.sdkVersion : '0.0.0'}\""
 	}
 
 	buildTypes {

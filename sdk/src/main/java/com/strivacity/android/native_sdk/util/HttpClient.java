@@ -3,6 +3,9 @@ package com.strivacity.android.native_sdk.util;
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.strivacity.android.native_sdk.auth.config.NetworkConfiguration;
 
 import lombok.Data;
 
@@ -28,8 +31,12 @@ public class HttpClient {
     @NonNull
     private final Logging logging;
 
-    public HttpClient(@NonNull Logging logging) {
+    @NonNull
+    private final NetworkConfiguration networkConfiguration;
+
+    public HttpClient(@NonNull Logging logging, @NonNull NetworkConfiguration networkConfiguration) {
         this.logging = logging;
+        this.networkConfiguration = networkConfiguration;
     }
 
     public HttpResponse get(Uri uri, CookieHandler cookieHandler, Consumer<HttpRequest> httpCustomizer) {
@@ -85,6 +92,10 @@ public class HttpClient {
             HttpRequest httpRequest = new HttpRequest(httpURLConnection, method) {
                 {
                     setFollowRedirects(false);
+                    setUserAgent(networkConfiguration.getUserAgent());
+                    for (Map.Entry<String, String> header : networkConfiguration.getCustomRequestHeaders().entrySet()) {
+                        setCustomRequestHeader(header.getKey(), header.getValue());
+                    }
                 }
             };
             httpCustomizer.accept(httpRequest);
@@ -150,6 +161,16 @@ public class HttpClient {
         public HttpRequest(HttpURLConnection httpURLConnection, String method) throws ProtocolException {
             this.httpURLConnection = httpURLConnection;
             httpURLConnection.setRequestMethod(method);
+        }
+
+        public void setUserAgent(@Nullable String userAgent) {
+            if (userAgent != null) {
+                httpURLConnection.setRequestProperty("User-Agent", userAgent);
+            }
+        }
+
+        public void setCustomRequestHeader(@NonNull String fieldName, @NonNull String fieldValue) {
+            httpURLConnection.setRequestProperty(fieldName, fieldValue);
         }
 
         public void setContentType(String contentType) {
